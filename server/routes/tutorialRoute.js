@@ -2,11 +2,65 @@ import express from "express";
 import Tutorial from "../models/tutorial.js";
 import Teacher from "../models/teacher.js";
 import User from "../models/user.js";
-import mongoose from "mongoose";
-import nodemailer from "nodemailer";
 //add email stuff later
 
 const router = express.Router();
+
+//https://docs.google.com/spreadsheets/d/11vUV0dSzIfh8Mg9QeXPfslrQtS0LNLVzQIxN0faar1M/edit#gid=940375853
+const base = `https://docs.google.com/spreadsheets/d/11vUV0dSzIfh8Mg9QeXPfslrQtS0LNLVzQIxN0faar1M/gviz/tq?`
+const q = encodeURIComponent('SELECT *')
+const url = `${base}sheet=Responses&tq=${q}`
+console.log(`${base}sheet=Responses&tq=${q}`)
+// fetch(url).then(res => res.text())
+//     .then(rep => {
+//         const jsData = JSON.parse(rep.substring(47).slice(0, -2))
+//         for(let i = 0; i < jsData.table.rows.length; i++) {
+//           const row = jsData.table.rows[i].c
+//           const teacherName = row[1]
+//           const classroom = row[2]
+//           const csClass = row[3]
+//           const type = row[4] === "Weekly" ? "Weekly" : "New"
+//           const date = row[5]
+//           console.log(date.v)
+
+//           // const finishDate =  row[6]
+//           // const alert = row[8] === "Yes" ? true : false
+//           // const teacherEmail = row[9]
+//           // const time = row[10]
+//           // var newTeacher = null;
+//           // if(!Teacher.findOne({teacherName})) {
+//           //     newTeacher = new Teacher({
+//           //     teacherName,
+//           //     classRoom: classroom,
+//           //     csClass,
+//           //     tutorialsRequest: [],
+//           //     createdTutorials: [],
+//           //   })
+//           //   newTeacher.save()
+//           // }
+//           // else {
+//           //   newTeacher = Teacher.findOne({teacherName});
+//           // }
+
+//           // const newTutorial = new Tutorial({
+//           //   teacher: newTeacher,
+//           //   teacherName,
+//           //   csClass,
+//           //   classroom,
+//           //   type,
+//           //   alert,
+//           //   teacherEmail,
+//           //   date,
+//           //   finishDate,
+//           //   time,
+//           //   students: [],
+//           //   studentNames: [],
+//           //   numberSignedUp: 0,
+//           // })
+//           // newTutorial.save()
+//         }
+// })
+
 
 router.post("/create-tutorial", async (req, res) => {
   try {
@@ -30,43 +84,64 @@ router.post("/create-tutorial", async (req, res) => {
       return res.status(402).json({ message: "Teacher not found" });
     }
 
-    const day = new Date(date);
-    const finishDay = new Date(finishDate);
-
-    const tutorialsToInsert = [];
-
-    while (day <= finishDay) {
-      if (day.getDay() >= 1 && day.getDay() <= 5) {
-        const newTutorial = new Tutorial({
-          teacher: teacherUser,
-          teacherName,
-          csClass,
-          classroom,
-          type,
-          alert,
-          teacherEmail,
-          date: new Date(day),
-          finishDate: new Date(finishDay),
-          time,
-          students: [],
-          studentNames: [],
-          numberSignedUp: 0,
-        });
-
-        tutorialsToInsert.push(newTutorial);
+    if(type === "Weekly") {
+      const day = new Date(date);
+      const finishDay = new Date(finishDate);
+      const tutorialsToInsert = [];
+      while (day <= finishDay) {
+        if (day.getDay() >= 1 && day.getDay() <= 5) {
+          const newTutorial = new Tutorial({
+            teacher: teacherUser,
+            teacherName,
+            csClass,
+            classroom,
+            type,
+            alert,
+            teacherEmail,
+            date: new Date(day),
+            finishDate: new Date(finishDay),
+            time,
+            students: [],
+            studentNames: [],
+            numberSignedUp: 0,
+          });
+  
+          tutorialsToInsert.push(newTutorial);
+        }
+  
+        day.setDate(day.getDate() + 7);
       }
-
-      day.setDate(day.getDate() + 7);
+  
+      tutorialsToInsert.sort((a, b) => a.date - b.date);
+  
+      for (const tutorial of tutorialsToInsert) {
+        const savedTutorial = await tutorial.save();
+        teacherUser.createdTutorials.push(savedTutorial);
+        await teacherUser.save();
+      }
+  
     }
-
-    tutorialsToInsert.sort((a, b) => a.date - b.date);
-
-    for (const tutorial of tutorialsToInsert) {
-      const savedTutorial = await tutorial.save();
+    else {
+      const newTutorial = new Tutorial({
+        teacher: teacherUser,
+        teacherName,
+        csClass,
+        classroom,
+        type,
+        alert,
+        teacherEmail,
+        date: date,
+        finishDate: finishDate,
+        time,
+        students: [],
+        studentNames: [],
+        numberSignedUp: 0,
+      });
+      const savedTutorial = await newTutorial.save();
       teacherUser.createdTutorials.push(savedTutorial);
       await teacherUser.save();
     }
-
+   
     res.status(201).json({
       message: "Tutorials created successfully",
     });
@@ -79,6 +154,7 @@ router.post("/create-tutorial", async (req, res) => {
 
 router.get("/get-signups", async (req, res) => {
   try {
+    const page = req.params.page;
     const tutorials = await Tutorial.find()
       .populate("teacher")
       .populate("students");
@@ -214,5 +290,6 @@ router.delete("/delete-all-tutorials", async (req, res) => {
       .json({ message: "Failed to delete all tutorials", error: error.message });
   }
 });
+
 
 export default router;

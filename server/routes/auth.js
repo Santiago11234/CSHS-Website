@@ -13,6 +13,7 @@ router.post('/student-register', async (req, res) => {
     const { email, password } = req.body;
     const userId = uuidv4(); 
     const name = '';
+    const katyIsdId = '';
     const profilePicture = '';
     const grade = '';
     const currentCS = '';
@@ -31,6 +32,7 @@ router.post('/student-register', async (req, res) => {
       userId,
       email,
       password: hashedPassword,
+      katyIsdId,
       name,
       profilePicture,
       grade,
@@ -68,6 +70,41 @@ router.post('/student-login', async (req, res) => {
     } catch (error) {
       res.status(500).json({ message: 'Login failed', error: error.message });
     }
+});
+
+router.post('/get-user', async (req, res) => {
+  const { userId } = req.body;
+  try {
+    const user = await User.findOne({ userId: userId.userId });
+    if (user) {
+      res.status(200).json({ message: 'User found', user });
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+});
+
+router.post('/update-user', async (req, res) => {
+  const {userId, name, grade, katyIsdId} = req.body;
+  
+  try {
+    const user = await User.findOne({ userId: userId.userId });
+    if (user) {
+        user.name = name;
+        user.grade = grade;
+        user.katyIsdId = katyIsdId;
+        await user.save();
+      res.status(200).json({ message: 'User found', user });
+    }
+    else {
+      res.status(404).json({ message: 'User not found' });
+    }
+
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
 });
 
 router.post('/teacher-register', async (req, res) => {
@@ -128,5 +165,15 @@ router.post('/teacher-login', async (req, res) => {
     res.status(500).json({ message: 'Teacher login failed', error: error.message });
   }
 });
+
+router.get('/getAllStudents', async (req, res) => {
+  try {
+    const students = await User.find({}, '-password'); 
+    res.status(200).json({ students });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching students', error: error.message });
+  }
+});
+
 
 export default router;
